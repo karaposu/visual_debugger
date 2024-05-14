@@ -25,14 +25,18 @@ pip install visual_debugger
 Here is a basic example of how to use the VisualDebugger class within your image processing workflow:
 
 ```python
+#import VisualDebugger and annotations
 from visual_debugger import VisualDebugger, Annotation, AnnotationType
+# (not necessary) import UniversalImageInputHandler to read the image file
+from image_input_handler import  UniversalImageInputHandler
 
 # Initialize the debugger
-
 vd = VisualDebugger(tag="Example", debug_folder_path="./visualdebug",  active=True)
 
-# Load your image (this should be replaced with your actual image path or np.array image)
-image_path = "path/to/your/image.jpg"
+# Load your image  (this should be replaced with your actual image path or np.array image)
+image_path = "path/to/your/image.jpg" 
+uih = UniversalImageInputHandler(image_path, debug=False)
+COMPATIBLE, img = uih.COMPATIBLE, uih.img
 
 # Create annotations you want to show on the image
 annotations = [
@@ -43,7 +47,7 @@ annotations = [
 # Process and debug the image.
 # This will use "tag" and "process_step" variables to create a file name 
 # And save the image into "debug_folder_path" 
-vd.visual_debug(image_path, annotations=annotations, process_step="initial_check")
+vd.visual_debug(img, annotations=annotations, process_step="initial_check")
 
 # Generate a merged image of all processed steps
 vd.cook_merged_img()
@@ -57,8 +61,5 @@ For more details on the methods and their parameters, please refer to the inline
 
 Contributions to enhance the functionality or improve the documentation are welcome. Please follow the standard GitHub pull request process to submit your contributions.
 
-## License
-
-Specify your licensing here, for example, MIT, GPL, etc.
 
 ---
