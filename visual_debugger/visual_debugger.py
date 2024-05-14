@@ -21,7 +21,7 @@ class AnnotationType(Enum):
 @dataclass
 class Annotation:
     type: AnnotationType
-    coordinates: Union[Tuple[int, int], List[Tuple[int, int]]]
+    coordinates: Optional[Union[Tuple[int, int], List[Tuple[int, int]]]] = None
     color: Tuple[int, int, int] = (255, 0, 0)
     labels: Optional[Union[str, List[str]]] = None
     orientation: Optional[Tuple[float, float, float]] = None
@@ -173,9 +173,11 @@ class VisualDebugger:
             for point, label in zip(annotation.coordinates, annotation.labels):
                 cv2.circle(image, point, 5, annotation.color, -1)
                 cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
         elif annotation.type == AnnotationType.PITCH_YAW_ROLL:
             p, y, r = annotation.orientation
-            image = self.draw_orientation(image, y, p, r)
+            tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
+            image = self.draw_orientation(image, y, p, r, tdx, tdy)
 
 
 def main():
@@ -186,7 +188,7 @@ def main():
     vd = VisualDebugger(tag="visuals", debug_folder_path="./", active=True)
     # vd = VisualDebugger(tag="visuals", debug_folder_path=debug_folder_path, active=True, output='return')
     # annotations = [Annotation(type=AnnotationType.POINTS, coordinates=result["landmark_list"], color=(0, 255, 0))]
-    annotations = [Annotation(type=AnnotationType.PITCH_YAW_ROLL, coordinates=(320, 240), orientation=(0.5, 0.5, 0.5))]
+    annotations = [Annotation(type=AnnotationType.PITCH_YAW_ROLL, orientation=(0.5, 0.5, 0.5))]
     vd.visual_debug(img, annotations, process_step="head_orientation")
 
     # img = vd.visual_debug(uiih.img, annotations, process_step="cropped_headselection_mask", condition="", mask=False)
