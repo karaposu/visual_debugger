@@ -181,17 +181,19 @@ class VisualDebugger:
 def main():
     img_input = "sample_image.jpg"
     uiih = UniversalImageInputHandler(img_input, debug=False)
+    img=uiih.img
 
-    debug_folder_path = "./"
-    visdebugger = VisualDebugger(tag="HS", debug_folder_path=debug_folder_path, active=True, output='return')
+    vd = VisualDebugger(tag="visuals", debug_folder_path="./", active=True)
+    # vd = VisualDebugger(tag="visuals", debug_folder_path=debug_folder_path, active=True, output='return')
+    # annotations = [Annotation(type=AnnotationType.POINTS, coordinates=result["landmark_list"], color=(0, 255, 0))]
     annotations = [Annotation(type=AnnotationType.PITCH_YAW_ROLL, coordinates=(320, 240), orientation=(0.5, 0.5, 0.5))]
+    vd.visual_debug(img, annotations, process_step="head_orientation")
 
-    img = visdebugger.visual_debug(uiih.img, annotations, process_step="cropped_headselection_mask", condition="", mask=False)
-
-    if img is not None:
-        cv2.imshow("Debug Image", img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    # img = vd.visual_debug(uiih.img, annotations, process_step="cropped_headselection_mask", condition="", mask=False)
+    # if img is not None:
+    #     cv2.imshow("Debug Image", img)
+    #     cv2.waitKey(0)
+    #     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

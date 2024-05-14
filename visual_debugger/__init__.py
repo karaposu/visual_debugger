@@ -1,1 +1,1 @@
-from .visual_debugger import VisualDebugger
+from .visual_debugger import VisualDebugger, Annotation, AnnotationType
