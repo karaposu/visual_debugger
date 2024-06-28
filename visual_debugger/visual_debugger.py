@@ -17,6 +17,9 @@ class AnnotationType(Enum):
     RECTANGLE = auto()
     PITCH_YAW_ROLL = auto()
 
+    LINE = auto()  # New line annotation type
+    LINE_AND_LABEL = auto()  # New line with label annotation type
+
 
 @dataclass
 class Annotation:
@@ -178,6 +181,17 @@ class VisualDebugger:
             p, y, r = annotation.orientation
             tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
             image = self.draw_orientation(image, y, p, r, tdx, tdy)
+
+        elif annotation.type == AnnotationType.LINE:
+            # Draw a line between two points
+            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
+        elif annotation.type == AnnotationType.LINE_AND_LABEL:
+            # Draw a line and then put a label
+            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
+            midpoint = ((annotation.coordinates[0][0] + annotation.coordinates[1][0]) // 2,
+                        (annotation.coordinates[0][1] + annotation.coordinates[1][1]) // 2)
+            cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
 
 
 def main():
