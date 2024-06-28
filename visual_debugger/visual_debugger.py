@@ -158,7 +158,33 @@ class VisualDebugger:
         thickness = -1
         img = cv2.circle(img, coordinates, radius, color, thickness)
         return img
+    def show_images_side_by_side(self, img1, img2, annotations1=[], annotations2=[], window_name="Comparison",
+                                 scale=False):
+        """
+        Displays two images side by side with separate annotations for comparison.
+        :param img1: First image or path to the first image.
+        :param img2: Second image or path to the second image.
+        :param annotations1: List of Annotation objects for the first image.
+        :param annotations2: List of Annotation objects for the second image.
+        :param window_name: The name of the window in which images will be shown.
+        :param scale: If False, pads the images to match heights without scaling.
+        """
+        if isinstance(img1, str):
+            img1 = cv2.imread(img1)
+        if isinstance(img2, str):
+            img2 = cv2.imread(img2)
 
+        # Apply annotations
+        for annotation in annotations1:
+            self.put_annotation_on_image(img1, annotation)
+        for annotation in annotations2:
+            self.put_annotation_on_image(img2, annotation)
+
+        if not scale:
+            img1, img2 = pad_images_to_match_height(img1, img2)
+
+        combined_image = np.hstack((img1, img2))
+        return combined_image
     def put_annotation_on_image(self, image, annotation: Annotation):
         """Puts the specified annotation on the image."""
         if annotation.type == AnnotationType.CIRCLE:
