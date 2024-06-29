@@ -169,10 +169,9 @@ class VisualDebugger:
         :param window_name: The name of the window in which images will be shown.
         :param scale: If False, pads the images to match heights without scaling.
         """
-        if isinstance(img1, str):
-            img1 = cv2.imread(img1)
-        if isinstance(img2, str):
-            img2 = cv2.imread(img2)
+        img1 = img1.copy()
+        img2 = img2.copy()
+
 
         # Apply annotations
         for annotation in annotations1:
@@ -198,6 +197,13 @@ class VisualDebugger:
             points = annotation.coordinates if isinstance(annotation.coordinates, list) else [annotation.coordinates]
             for point in points:
                 cv2.circle(image, point, 5, annotation.color, -1)
+
+        elif annotation.type == AnnotationType.POINT_AND_LABEL:
+            point = annotation.coordinates
+            label = annotation.labels
+            cv2.circle(image, point, 5, annotation.color, -1)
+            cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
         elif annotation.type == AnnotationType.POINTS_AND_LABELS:
             for point, label in zip(annotation.coordinates, annotation.labels):
                 cv2.circle(image, point, 5, annotation.color, -1)
