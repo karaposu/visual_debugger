@@ -297,12 +297,16 @@ class VisualDebugger:
         """Pads two images to match their heights without scaling."""
         height1, width1 = img1.shape[:2]
         height2, width2 = img2.shape[:2]
+
         if height1 > height2:
-            padding = (height1 - height2) // 2
-            img2 = cv2.copyMakeBorder(img2, padding, padding, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+            padding_top = (height1 - height2) // 2
+            padding_bottom = height1 - height2 - padding_top
+            img2 = cv2.copyMakeBorder(img2, padding_top, padding_bottom, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
         elif height2 > height1:
-            padding = (height2 - height1) // 2
-            img1 = cv2.copyMakeBorder(img1, padding, padding, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+            padding_top = (height2 - height1) // 2
+            padding_bottom = height2 - height1 - padding_top
+            img1 = cv2.copyMakeBorder(img1, padding_top, padding_bottom, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
         return img1, img2
 
 def main():
@@ -344,5 +348,5 @@ def main():
     # Merge and save all debug images
     vd.cook_merged_img()
 
-if __name__ == '__main__':
+if __name__ == '__nun__':
     main()
