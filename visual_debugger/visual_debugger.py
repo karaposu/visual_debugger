@@ -157,7 +157,7 @@ class VisualDebugger:
 
         return final_img
 
-    def visual_debug(self, img, annotations=[], name="generic", stage_name="", transparent=False, mask=False):
+    def visual_debug(self, img, annotations=[], name="generic", stage_name=None, transparent=False, mask=False):
         """Handles visual debugging by annotating and saving or returning images."""
         if not self.active:
             return
@@ -170,7 +170,13 @@ class VisualDebugger:
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA) if transparent else img
 
         if self.output == 'save':
-            filename = f"{str(self.sequence).zfill(3)}_{self.tag}_{name}_{stage_name}.png"
+            # Use an empty string as the default stage_name if not provided
+            stage_name = stage_name if stage_name is not None else ""
+            if stage_name != "":
+                filename = f"{str(self.sequence).zfill(3)}_{self.tag}_{name}_{stage_name}.png"
+            else:
+                filename = f"{str(self.sequence).zfill(3)}_{self.tag}_{name}.png"
+
             full_path = os.path.join(self.debug_folder_path, filename)
             if mask:
                 cv2.imwrite(full_path, img)
