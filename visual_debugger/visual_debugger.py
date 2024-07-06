@@ -24,7 +24,7 @@ class Annotation:
     coordinates: Optional[Union[Tuple[int, int], List[Tuple[int, int]]]] = None
     color: Tuple[int, int, int] = (255, 0, 0)
     labels: Optional[Union[str, List[str]]] = None
-    radius : Optional[float] = None
+    radius: Optional[float] = None
     thickness: Optional[float] = None
     orientation: Optional[Tuple[float, float, float]] = None
 
@@ -99,14 +99,13 @@ class VisualDebugger:
         label_text = f"{name}_{stage_name}"
         return padded_img, label_text
 
-    def place_image_on_final(self, final_img, padded_img, label_text, current_x, current_y, border_thickness,
-                             border_color):
+    def place_image_on_final(self, final_img, padded_img, label_text, current_x, current_y, border_thickness, border_color):
         """Places the image with labels and borders on the final image."""
         label_size, _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         label_position = (current_x + 5, current_y - 10)
         cv2.putText(final_img, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, border_color, 1)
         final_img[current_y:current_y + padded_img.shape[0],
-        current_x:current_x + padded_img.shape[1]] = padded_img
+                  current_x:current_x + padded_img.shape[1]] = padded_img
         return final_img
 
     def create_horizontal_image(self, grouped_images, max_height, total_width, border_thickness, border_color, label_space):
@@ -125,11 +124,7 @@ class VisualDebugger:
     def concat_images_horizontally(self, grouped_images, border_thickness, border_color, label_space):
         """Concatenates images horizontally with labels and borders."""
         max_height, total_width = self.calculate_horizontal_dimensions(grouped_images, border_thickness, label_space)
-        return self.create_horizontal_image(grouped_images, max_height, total_width, border_thickness, border_color,
-                                            label_space)
-
-
-
+        return self.create_horizontal_image(grouped_images, max_height, total_width, border_thickness, border_color, label_space)
 
     def concat_images_vertically(self, grouped_images, border_thickness, border_color, label_space):
         """Concatenates images vertically with labels and borders."""
@@ -151,7 +146,7 @@ class VisualDebugger:
                 label_position = (current_x + 5, current_y - 10)
                 cv2.putText(final_img, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, border_color, 1)
                 final_img[current_y:current_y + padded_img.shape[0],
-                current_x:current_x + padded_img.shape[1]] = padded_img
+                          current_x:current_x + padded_img.shape[1]] = padded_img
                 current_x += padded_img.shape[1] + label_space
             current_y += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + label_space
 
@@ -221,9 +216,8 @@ class VisualDebugger:
         img = cv2.line(img, (tdx, tdy), (int(transformed_points[3][0]), int(transformed_points[3][1])), (0, 0, 255), 3)
         return img
 
-    def put_circle_and_text_on_image(self, img, text, coordinates,radius, thickness,  color):
+    def put_circle_and_text_on_image(self, img, text, coordinates, radius, thickness, color):
         """Puts a circle and text on the image at the specified coordinates."""
-
         font = cv2.FONT_HERSHEY_SIMPLEX
         org = (coordinates[0] + 10, coordinates[1])
         fontScale = 0.5
@@ -258,7 +252,7 @@ class VisualDebugger:
             self.put_annotation_on_image(img2, annotation)
 
         if not scale:
-            img1, img2 = pad_images_to_match_height(img1, img2)
+            img1, img2 = self.pad_images_to_match_height(img1, img2)
 
         combined_image = np.hstack((img1, img2))
         return combined_image
@@ -268,7 +262,7 @@ class VisualDebugger:
         if annotation.type == AnnotationType.CIRCLE:
             cv2.circle(image, annotation.coordinates, 5, annotation.color, -1)
         elif annotation.type == AnnotationType.CIRCLE_AND_LABEL:
-            self.put_circle_and_text_on_image(image, annotation.labels, annotation.coordinates, annotation.radius, annotation.thickness,  annotation.color)
+            self.put_circle_and_text_on_image(image, annotation.labels, annotation.coordinates, annotation.radius, annotation.thickness, annotation.color)
         elif annotation.type == AnnotationType.RECTANGLE:
             x, y, w, h = annotation.coordinates
             cv2.rectangle(image, (x, y), (x + w, y + h), annotation.color, 2)
@@ -276,23 +270,19 @@ class VisualDebugger:
             points = annotation.coordinates if isinstance(annotation.coordinates, list) else [annotation.coordinates]
             for point in points:
                 cv2.circle(image, point, 5, annotation.color, -1)
-
         elif annotation.type == AnnotationType.POINT_AND_LABEL:
             point = annotation.coordinates
             label = annotation.labels
             cv2.circle(image, point, 5, annotation.color, -1)
             cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
-
         elif annotation.type == AnnotationType.POINTS_AND_LABELS:
             for point, label in zip(annotation.coordinates, annotation.labels):
                 cv2.circle(image, point, 5, annotation.color, -1)
                 cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
-
         elif annotation.type == AnnotationType.PITCH_YAW_ROLL:
             p, y, r = annotation.orientation
             tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
             image = self.draw_orientation(image, y, p, r, tdx, tdy)
-
         elif annotation.type == AnnotationType.LINE:
             # Draw a line between two points
             cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
@@ -302,6 +292,18 @@ class VisualDebugger:
             midpoint = ((annotation.coordinates[0][0] + annotation.coordinates[1][0]) // 2,
                         (annotation.coordinates[0][1] + annotation.coordinates[1][1]) // 2)
             cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
+    def pad_images_to_match_height(self, img1, img2):
+        """Pads two images to match their heights without scaling."""
+        height1, width1 = img1.shape[:2]
+        height2, width2 = img2.shape[:2]
+        if height1 > height2:
+            padding = (height1 - height2) // 2
+            img2 = cv2.copyMakeBorder(img2, padding, padding, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        elif height2 > height1:
+            padding = (height2 - height1) // 2
+            img1 = cv2.copyMakeBorder(img1, padding, padding, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        return img1, img2
 
 def main():
     img1 = np.ones((200, 300, 3), dtype=np.uint8) * 255
@@ -322,7 +324,7 @@ def main():
         Annotation(type=AnnotationType.POINTS_AND_LABELS, coordinates=[(70, 80), (90, 110)], labels=["P2", "P3"])
     ]
     annotations3 = [
-        Annotation(type=AnnotationType.CIRCLE_AND_LABEL, coordinates=(150, 195), radius= 20, thickness= 2,  labels="Circle 1")
+        Annotation(type=AnnotationType.CIRCLE_AND_LABEL, coordinates=(150, 195), radius=20, thickness=2, labels="Circle 1")
     ]
     annotations4 = [
         Annotation(type=AnnotationType.RECTANGLE, coordinates=(50, 50, 100, 100)),
@@ -341,21 +343,6 @@ def main():
 
     # Merge and save all debug images
     vd.cook_merged_img()
-
-
-
-
-
-    # img_input = "sample_image.jpg"
-    # uiih = UniversalImageInputHandler(img_input, debug=False)
-    # img = uiih.img
-    #
-    # vd = VisualDebugger(tag="visuals", debug_folder_path="./", active=True)
-    # annotations = [Annotation(type=AnnotationType.PITCH_YAW_ROLL, orientation=(0.5, 0.5, 0.5))]
-    # vd.visual_debug(img, annotations, name="head_orientation", stage_name="initial")
-    #
-    # # Merge and save all debug images
-    # vd.cook_merged_img()
 
 if __name__ == '__main__':
     main()
