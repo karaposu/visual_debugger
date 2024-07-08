@@ -24,7 +24,7 @@ class Annotation:
     coordinates: Optional[Union[Tuple[int, int], List[Tuple[int, int]]]] = None
     color: Tuple[int, int, int] = (255, 0, 0)
     labels: Optional[Union[str, List[str]]] = None
-    radius : Optional[float] = None
+    radius: Optional[float] = None
     thickness: Optional[float] = None
     orientation: Optional[Tuple[float, float, float]] = None
 
@@ -35,49 +35,113 @@ class Annotation:
         if self.type == AnnotationType.PITCH_YAW_ROLL and self.orientation is None:
             raise ValueError("Orientation (pitch, yaw, roll) must be provided for 'pitch_yaw_roll' type.")
 
-class VisualDebugger:
-    def __init__(self, tag="visuals", debug_folder_path=None, generate_merged=False, active=True, output='save'):
-        self.sequence = 1
-        self.tag = tag
-        self.active = active
-        self.debug_folder_path = debug_folder_path if debug_folder_path is not None else os.getcwd()
-        self.generate_merged = generate_merged
-        self.images = []
-        self.output = output
+class ImageProcessor:
+    def put_annotation_on_image(self, image, annotation: Annotation):
+        """Puts the specified annotation on the image."""
+        if annotation.type == AnnotationType.CIRCLE:
+            cv2.circle(image, annotation.coordinates, 5, annotation.color, -1)
+        elif annotation.type == AnnotationType.CIRCLE_AND_LABEL:
+            self.put_circle_and_text_on_image(image, annotation.labels, annotation.coordinates, annotation.radius, annotation.thickness, annotation.color)
+        elif annotation.type == AnnotationType.RECTANGLE:
+            x, y, w, h = annotation.coordinates
+            cv2.rectangle(image, (x, y), (x + w, y + h), annotation.color, 2)
+        elif annotation.type in {AnnotationType.POINTS, AnnotationType.POINT}:
+            points = annotation.coordinates if isinstance(annotation.coordinates, list) else [annotation.coordinates]
+            for point in points:
+                cv2.circle(image, point, 5, annotation.color, -1)
 
-        if self.active:
-            self.ensure_directory_exists()
+        elif annotation.type == AnnotationType.POINT_AND_LABEL:
+            point = annotation.coordinates
+            label = annotation.labels
+            cv2.circle(image, point, 5, annotation.color, -1)
+            cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
 
-    def ensure_directory_exists(self):
-        """Checks if the directory exists and creates it if it does not."""
-        if not os.path.exists(self.debug_folder_path):
-            os.makedirs(self.debug_folder_path)
-            print(f"Created directory: {self.debug_folder_path}")
+        elif annotation.type == AnnotationType.POINTS_AND_LABELS:
+            for point, label in zip(annotation.coordinates, annotation.labels):
+                cv2.circle(image, point, 5, annotation.color, -1)
+                cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
 
-    def increment_sequence(self):
-        """Increments the sequence number."""
-        if self.active:
-            self.sequence += 1
+        elif annotation.type == AnnotationType.PITCH_YAW_ROLL:
+            p, y, r = annotation.orientation
+            tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
+            image = self.draw_orientation(image, y, p, r, tdx, tdy)
 
-    def reset_sequence(self):
-        """Resets the sequence number and clears the image list."""
-        if self.active:
-            self.sequence = 1
-            self.images = []
+        elif annotation.type == AnnotationType.LINE:
+            # Draw a line between two points
+            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
+        elif annotation.type == AnnotationType.LINE_AND_LABEL:
+            # Draw a line and then put a label
+            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
+            midpoint = ((annotation.coordinates[0][0] + annotation.coordinates[1][0]) // 2,
+                        (annotation.coordinates[0][1] + annotation.coordinates[1][1]) // 2)
+            cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
 
-    def concat_images(self, axis=1, border_thickness=5, border_color=(255, 255, 255), vertical_space=20, horizontal_space=20):
+    def draw_orientation(self, img, yaw, pitch, roll, tdx=None, tdy=None, size=100):
+        """Draws the orientation axes on the image."""
+        pitch = np.deg2rad(pitch)
+        yaw = np.deg2rad(yaw)
+        roll = np.deg2rad(roll)
+
+        if tdx is None or tdy is None:
+            height, width = img.shape[:2]
+            tdx = width // 2
+            tdy = height // 2
+
+        Rx = np.array([[1, 0, 0], [0, np.cos(pitch), -np.sin(pitch)], [0, np.sin(pitch), np.cos(pitch)]])
+        Ry = np.array([[np.cos(yaw), 0, np.sin(yaw)], [0, 1, 0], [-np.sin(yaw), 0, np.cos(yaw)]])
+        Rz = np.array([[np.cos(roll), -np.sin(roll), 0], [np.sin(roll), np.cos(roll), 0], [0, 0, 1]])
+        R = Rz @ Ry @ Rx
+
+        axis_points = np.array([[0, 0, 0], [size, 0, 0], [0, size, 0], [0, 0, size]])
+        transformed_points = axis_points @ R.T
+        transformed_points = transformed_points + np.array([tdx, tdy, 0])
+
+        img = cv2.line(img, (tdx, tdy), (int(transformed_points[1][0]), int(transformed_points[1][1])), (255, 0, 0), 3)
+        img = cv2.line(img, (tdx, tdy), (int(transformed_points[2][0]), int(transformed_points[2][1])), (0, 255, 0), 3)
+        img = cv2.line(img, (tdx, tdy), (int(transformed_points[3][0]), int(transformed_points[3][1])), (0, 0, 255), 3)
+        return img
+
+    def put_circle_and_text_on_image(self, img, text, coordinates, radius, thickness, color):
+        """Puts a circle and text on the image at the specified coordinates."""
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        org = (coordinates[0] + 10, coordinates[1])
+        fontScale = 0.5
+        img = cv2.putText(img, text, org, font, fontScale, color, 1, cv2.LINE_AA)
+        img = cv2.circle(img, coordinates, radius, color, thickness)
+        return img
+
+    def pad_images_to_match_height(self, img1, img2):
+        """Pads images to match their height."""
+        h1, w1 = img1.shape[:2]
+        h2, w2 = img2.shape[:2]
+
+        if h1 > h2:
+            pad_amount = h1 - h2
+            pad_top = pad_amount // 2
+            pad_bottom = pad_amount - pad_top
+            img2 = cv2.copyMakeBorder(img2, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        elif h2 > h1:
+            pad_amount = h2 - h1
+            pad_top = pad_amount // 2
+            pad_bottom = pad_amount - pad_top
+            img1 = cv2.copyMakeBorder(img1, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+
+        return img1, img2
+
+    def concat_images(self, images, axis=1, border_thickness=5, border_color=(255, 255, 255), vertical_space=20, horizontal_space=20):
         """Concatenates all stored images into one large image with labels and optional borders."""
-        grouped_images = self.group_images_by_name()
+        grouped_images = self.group_images_by_name(images)
 
         if axis == 1:  # Horizontal concatenation
             return self.concat_images_horizontally(grouped_images, border_thickness, border_color, vertical_space, horizontal_space)
         else:  # Vertical concatenation
             return self.concat_images_vertically(grouped_images, border_thickness, border_color, vertical_space, horizontal_space)
 
-    def group_images_by_name(self):
+    def group_images_by_name(self, images):
         """Groups images by their name."""
         grouped_images = {}
-        for img, name, stage_name in self.images:
+        for img, name, stage_name in images:
             if name not in grouped_images:
                 grouped_images[name] = []
             grouped_images[name].append((img, stage_name))
@@ -153,6 +217,37 @@ class VisualDebugger:
             current_y += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + vertical_space
         return final_img
 
+class VisualDebugger:
+    def __init__(self, tag="visuals", debug_folder_path=None, generate_merged=False, active=True, output='save'):
+        self.sequence = 1
+        self.tag = tag
+        self.active = active
+        self.debug_folder_path = debug_folder_path if debug_folder_path is not None else os.getcwd()
+        self.generate_merged = generate_merged
+        self.images = []
+        self.output = output
+        self.processor = ImageProcessor()
+
+        if self.active:
+            self.ensure_directory_exists()
+
+    def ensure_directory_exists(self):
+        """Checks if the directory exists and creates it if it does not."""
+        if not os.path.exists(self.debug_folder_path):
+            os.makedirs(self.debug_folder_path)
+            print(f"Created directory: {self.debug_folder_path}")
+
+    def increment_sequence(self):
+        """Increments the sequence number."""
+        if self.active:
+            self.sequence += 1
+
+    def reset_sequence(self):
+        """Resets the sequence number and clears the image list."""
+        if self.active:
+            self.sequence = 1
+            self.images = []
+
     def visual_debug(self, img, annotations=[], name="generic", stage_name=None, transparent=False, mask=False):
         """Handles visual debugging by annotating and saving or returning images."""
         if not self.active:
@@ -161,7 +256,7 @@ class VisualDebugger:
         img = cv2.imread(img) if isinstance(img, str) else img.copy()
 
         for annotation in annotations:
-            self.put_annotation_on_image(img, annotation)
+            self.processor.put_annotation_on_image(img, annotation)
 
         img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA) if transparent else img
 
@@ -185,55 +280,6 @@ class VisualDebugger:
         else:
             raise ValueError("Invalid output option. Use 'save' or 'return'.")
 
-    def cook_merged_img(self, vertical_space=20, horizontal_space=20):
-        """Creates a merged image from all debug images and saves it."""
-        final_img = self.concat_images(vertical_space=vertical_space, horizontal_space=horizontal_space)
-        filename = "0_merged.png"
-        full_path = os.path.join(self.debug_folder_path, filename)
-        cv2.imwrite(full_path, cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR))
-
-    def draw_orientation(self, img, yaw, pitch, roll, tdx=None, tdy=None, size=100):
-        """Draws the orientation axes on the image."""
-        pitch = np.deg2rad(pitch)
-        yaw = np.deg2rad(yaw)
-        roll = np.deg2rad(roll)
-
-        if tdx is None or tdy is None:
-            height, width = img.shape[:2]
-            tdx = width // 2
-            tdy = height // 2
-
-        Rx = np.array([[1, 0, 0], [0, np.cos(pitch), -np.sin(pitch)], [0, np.sin(pitch), np.cos(pitch)]])
-        Ry = np.array([[np.cos(yaw), 0, np.sin(yaw)], [0, 1, 0], [-np.sin(yaw), 0, np.cos(yaw)]])
-        Rz = np.array([[np.cos(roll), -np.sin(roll), 0], [np.sin(roll), np.cos(roll), 0], [0, 0, 1]])
-        R = Rz @ Ry @ Rx
-
-        axis_points = np.array([[0, 0, 0], [size, 0, 0], [0, size, 0], [0, 0, size]])
-        transformed_points = axis_points @ R.T
-        transformed_points = transformed_points + np.array([tdx, tdy, 0])
-
-        img = cv2.line(img, (tdx, tdy), (int(transformed_points[1][0]), int(transformed_points[1][1])), (255, 0, 0), 3)
-        img = cv2.line(img, (tdx, tdy), (int(transformed_points[2][0]), int(transformed_points[2][1])), (0, 255, 0), 3)
-        img = cv2.line(img, (tdx, tdy), (int(transformed_points[3][0]), int(transformed_points[3][1])), (0, 0, 255), 3)
-        return img
-
-    def put_circle_and_text_on_image(self, img, text, coordinates, radius, thickness, color):
-        """Puts a circle and text on the image at the specified coordinates."""
-
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        org = (coordinates[0] + 10, coordinates[1])
-        fontScale = 0.5
-        img = cv2.putText(img, text, org, font, fontScale, color, 1, cv2.LINE_AA)
-        img = cv2.circle(img, coordinates, radius, color, thickness)
-        return img
-
-    def put_circle_on_image(self, img, coordinates, color):
-        """Puts a circle on the image at the specified coordinates."""
-        radius = 3
-        thickness = -1
-        img = cv2.circle(img, coordinates, radius, color, thickness)
-        return img
-
     def show_images_side_by_side(self, img1, img2, annotations1=[], annotations2=[], window_name="Comparison", scale=False):
         """
         Displays two images side by side with separate annotations for comparison.
@@ -249,73 +295,22 @@ class VisualDebugger:
 
         # Apply annotations
         for annotation in annotations1:
-            self.put_annotation_on_image(img1, annotation)
+            self.processor.put_annotation_on_image(img1, annotation)
         for annotation in annotations2:
-            self.put_annotation_on_image(img2, annotation)
+            self.processor.put_annotation_on_image(img2, annotation)
 
         if not scale:
-            img1, img2 = self.pad_images_to_match_height(img1, img2)
+            img1, img2 = self.processor.pad_images_to_match_height(img1, img2)
 
         combined_image = np.hstack((img1, img2))
         return combined_image
 
-    def put_annotation_on_image(self, image, annotation: Annotation):
-        """Puts the specified annotation on the image."""
-        if annotation.type == AnnotationType.CIRCLE:
-            cv2.circle(image, annotation.coordinates, 5, annotation.color, -1)
-        elif annotation.type == AnnotationType.CIRCLE_AND_LABEL:
-            self.put_circle_and_text_on_image(image, annotation.labels, annotation.coordinates, annotation.radius, annotation.thickness, annotation.color)
-        elif annotation.type == AnnotationType.RECTANGLE:
-            x, y, w, h = annotation.coordinates
-            cv2.rectangle(image, (x, y), (x + w, y + h), annotation.color, 2)
-        elif annotation.type in {AnnotationType.POINTS, AnnotationType.POINT}:
-            points = annotation.coordinates if isinstance(annotation.coordinates, list) else [annotation.coordinates]
-            for point in points:
-                cv2.circle(image, point, 5, annotation.color, -1)
-
-        elif annotation.type == AnnotationType.POINT_AND_LABEL:
-            point = annotation.coordinates
-            label = annotation.labels
-            cv2.circle(image, point, 5, annotation.color, -1)
-            cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
-
-        elif annotation.type == AnnotationType.POINTS_AND_LABELS:
-            for point, label in zip(annotation.coordinates, annotation.labels):
-                cv2.circle(image, point, 5, annotation.color, -1)
-                cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
-
-        elif annotation.type == AnnotationType.PITCH_YAW_ROLL:
-            p, y, r = annotation.orientation
-            tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
-            image = self.draw_orientation(image, y, p, r, tdx, tdy)
-
-        elif annotation.type == AnnotationType.LINE:
-            # Draw a line between two points
-            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
-        elif annotation.type == AnnotationType.LINE_AND_LABEL:
-            # Draw a line and then put a label
-            cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
-            midpoint = ((annotation.coordinates[0][0] + annotation.coordinates[1][0]) // 2,
-                        (annotation.coordinates[0][1] + annotation.coordinates[1][1]) // 2)
-            cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
-
-    def pad_images_to_match_height(self, img1, img2):
-        """Pads images to match their height."""
-        h1, w1 = img1.shape[:2]
-        h2, w2 = img2.shape[:2]
-
-        if h1 > h2:
-            pad_amount = h1 - h2
-            pad_top = pad_amount // 2
-            pad_bottom = pad_amount - pad_top
-            img2 = cv2.copyMakeBorder(img2, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        elif h2 > h1:
-            pad_amount = h2 - h1
-            pad_top = pad_amount // 2
-            pad_bottom = pad_amount - pad_top
-            img1 = cv2.copyMakeBorder(img1, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-
-        return img1, img2
+    def cook_merged_img(self, vertical_space=20, horizontal_space=20):
+        """Creates a merged image from all debug images and saves it."""
+        final_img = self.processor.concat_images(self.images, vertical_space=vertical_space, horizontal_space=horizontal_space)
+        filename = "0_merged.png"
+        full_path = os.path.join(self.debug_folder_path, filename)
+        cv2.imwrite(full_path, cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR))
 
 def main():
     img1 = np.ones((200, 300, 3), dtype=np.uint8) * 255
