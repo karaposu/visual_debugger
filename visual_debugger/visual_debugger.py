@@ -17,6 +17,7 @@ class AnnotationType(Enum):
     PITCH_YAW_ROLL = auto()
     LINE = auto()  # New line annotation type
     LINE_AND_LABEL = auto()  # New line with label annotation type
+    MASK = auto()
 
 @dataclass
 class Annotation:
@@ -27,6 +28,7 @@ class Annotation:
     radius: Optional[float] = None
     thickness: Optional[float] = None
     orientation: Optional[Tuple[float, float, float]] = None
+    mask: Optional[np.ndarray] = None  # Adding mask field
 
     def __post_init__(self):
         if self.type in {AnnotationType.POINTS_AND_LABELS, AnnotationType.POINT_AND_LABEL} and isinstance(self.labels, list):
@@ -75,7 +77,22 @@ class ImageProcessor:
             midpoint = ((annotation.coordinates[0][0] + annotation.coordinates[1][0]) // 2,
                         (annotation.coordinates[0][1] + annotation.coordinates[1][1]) // 2)
             cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+        elif annotation.type == AnnotationType.MASK:
+            self.put_mask_on_image(image, annotation.mask)
 
+    def put_mask_on_image(self, image, mask):
+        """Overlays a mask on the image."""
+        num_classes = np.max(mask) + 1  # Get the number of classes in the mask
+        color_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+
+        # Generate color mapping dynamically
+        color_mapping = np.random.randint(0, 255, size=(num_classes, 3), dtype=np.uint8)
+
+        for index in range(num_classes):
+            color_mask[mask == index] = color_mapping[index]
+
+        overlayed_image = cv2.addWeighted(image, 0.5, color_mask, 0.5, 0)
+        np.copyto(image, overlayed_image)
     def draw_orientation(self, img, yaw, pitch, roll, tdx=None, tdy=None, size=100):
         """Draws the orientation axes on the image."""
         pitch = np.deg2rad(pitch)
@@ -312,16 +329,56 @@ class VisualDebugger:
         full_path = os.path.join(self.debug_folder_path, filename)
         cv2.imwrite(full_path, cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR))
 
-def main():
-    img1 = np.ones((200, 300, 3), dtype=np.uint8) * 255
-    img2 = np.ones((150, 350, 3), dtype=np.uint8) * 200
-    img3 = np.ones((250, 250, 3), dtype=np.uint8) * 150
-    img4 = np.ones((300, 200, 3), dtype=np.uint8) * 100
+    def visualize_mask(self, image_tensor, mask, name="mask", stage_name=None):
+        """Visualizes a mask on the image and saves or returns the result."""
+        image = image_tensor.numpy().transpose(1, 2, 0) * 255
+        image = image.astype(np.uint8)
 
-    images = [img1, img2, img3, img4]
+        color_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        color_mapping = np.array([
+            [0, 0, 0],
+            [0, 153, 255],
+            [102, 255, 153],
+            [0, 204, 153],
+            [255, 255, 102],
+            [255, 255, 204],
+            [255, 153, 0],
+            [255, 102, 255],
+            [102, 0, 51],
+            [255, 204, 255],
+            [255, 0, 102]
+        ])
+
+        for index, color in enumerate(color_mapping):
+            color_mask[mask == index] = color
+
+        overlayed_image = cv2.addWeighted(image, 0.5, color_mask, 0.5, 0)
+
+        if self.output == 'save':
+            stage_name = stage_name if stage_name is not None else ""
+            filename = f"{str(self.sequence).zfill(3)}_{self.tag}_{name}_{stage_name}.png"
+            full_path = os.path.join(self.debug_folder_path, filename)
+            cv2.imwrite(full_path, cv2.cvtColor(overlayed_image, cv2.COLOR_RGB2BGR))
+            self.increment_sequence()
+            self.images.append((overlayed_image, name, stage_name))
+        elif self.output == 'return':
+            return overlayed_image
+        else:
+            raise ValueError("Invalid output option. Use 'save' or 'return'.")
+
+def main():
+    # img1 = np.ones((200, 300, 3), dtype=np.uint8) * 255
+    # img2 = np.ones((150, 350, 3), dtype=np.uint8) * 200
+    # img3 = np.ones((250, 250, 3), dtype=np.uint8) * 150
+    # img4 = np.ones((300, 200, 3), dtype=np.uint8) * 100
+    #
+    # images = [img1, img2, img3, img4]
+
+    uiih = UniversalImageInputHandler("../sample_image.jpg")
+    img=uiih.img
 
     # Create UniversalImageInputHandler instances for each image
-    handlers = [UniversalImageInputHandler(img) for img in images]
+    # handlers = [UniversalImageInputHandler(img) for img in images]
 
     # Create annotations for each image
     annotations1 = [
@@ -339,14 +396,33 @@ def main():
         Annotation(type=AnnotationType.LINE_AND_LABEL, coordinates=((20, 20), (180, 180)), labels="Line 1")
     ]
 
+    height, width =img.shape[:2]
+    mask = np.zeros((height, width), dtype=int)
+    section_width = width // 3
+    mask[:, :section_width] = 1  # First section
+    mask[:, section_width:2 * section_width] = 2  # Second section
+    mask[:, 2 * section_width:] = 3  # Third section
+    if width % 3 != 0:
+        remaining_start = 2 * section_width
+        mask[:, remaining_start:] = 3
+
+    annotations5 = [Annotation(type=AnnotationType.MASK, mask=mask)]
+
     # Create VisualDebugger instance
     vd = VisualDebugger(tag="visuals", debug_folder_path="./", active=True)
 
     # Apply visual_debug for each image with annotations
-    vd.visual_debug(handlers[0].img, annotations1, name="image1", stage_name="")
-    vd.visual_debug(handlers[1].img, annotations2, name="image2", stage_name="")
-    vd.visual_debug(handlers[2].img, annotations3, name="image3", stage_name="step1")
-    vd.visual_debug(handlers[3].img, annotations4, name="image3", stage_name="step2")
+    vd.visual_debug(img, annotations1, name="image1", stage_name="")
+    vd.visual_debug(img, annotations2, name="image2", stage_name="")
+    vd.visual_debug(img, annotations3, name="image3", stage_name="step1")
+    vd.visual_debug(img, annotations4, name="image3", stage_name="step2")
+    vd.visual_debug(img, annotations5, name="parsing_mask", stage_name="")
+
+   # mask = np.random.randint(0, 3, (200, 300))
+    #mask = np.random.randint(0, 3, (  handlers[0].img.shape[0], handlers[0].img.shape[1] ))
+
+    # mask_annotation = Annotation(type=AnnotationType.MASK, mask=mask)
+    # vd.visual_debug(handlers[0].img, [mask_annotation], name="mask_example", stage_name="step1")
 
     # Merge and save all debug images
     vd.cook_merged_img(vertical_space=30, horizontal_space=50)
