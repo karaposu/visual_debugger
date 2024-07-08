@@ -24,7 +24,7 @@ class Annotation:
     coordinates: Optional[Union[Tuple[int, int], List[Tuple[int, int]]]] = None
     color: Tuple[int, int, int] = (255, 0, 0)
     labels: Optional[Union[str, List[str]]] = None
-    radius: Optional[float] = None
+    radius : Optional[float] = None
     thickness: Optional[float] = None
     orientation: Optional[Tuple[float, float, float]] = None
 
@@ -65,14 +65,14 @@ class VisualDebugger:
             self.sequence = 1
             self.images = []
 
-    def concat_images(self, axis=1, border_thickness=5, border_color=(255, 255, 255), label_space=20):
+    def concat_images(self, axis=1, border_thickness=5, border_color=(255, 255, 255), vertical_space=20, horizontal_space=20):
         """Concatenates all stored images into one large image with labels and optional borders."""
         grouped_images = self.group_images_by_name()
 
         if axis == 1:  # Horizontal concatenation
-            return self.concat_images_horizontally(grouped_images, border_thickness, border_color, label_space)
+            return self.concat_images_horizontally(grouped_images, border_thickness, border_color, vertical_space, horizontal_space)
         else:  # Vertical concatenation
-            return self.concat_images_vertically(grouped_images, border_thickness, border_color, label_space)
+            return self.concat_images_vertically(grouped_images, border_thickness, border_color, vertical_space, horizontal_space)
 
     def group_images_by_name(self):
         """Groups images by their name."""
@@ -83,17 +83,22 @@ class VisualDebugger:
             grouped_images[name].append((img, stage_name))
         return grouped_images
 
-    def calculate_horizontal_dimensions(self, grouped_images, border_thickness, label_space):
+    def calculate_horizontal_dimensions(self, grouped_images, border_thickness, vertical_space, horizontal_space):
         """Calculates dimensions for horizontally concatenated images."""
         max_height = 0
         total_width = 0
         for name, imgs in grouped_images.items():
-            max_height = max(max_height, sum(img.shape[0] + 2 * border_thickness for img, _ in imgs))
-            total_width += max(img.shape[1] + 2 * border_thickness for img, _ in imgs) + label_space
+            max_height = max(max_height, sum(img.shape[0] + 2 * border_thickness + vertical_space for img, _ in imgs))
+            total_width += max(img.shape[1] + 2 * border_thickness for img, _ in imgs) + horizontal_space
         return max_height, total_width
 
     def add_labels_and_borders(self, img, name, stage_name, border_thickness, border_color):
         """Adds labels and borders to an individual image."""
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        elif img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
         padded_img = cv2.copyMakeBorder(img, border_thickness, border_thickness, border_thickness, border_thickness,
                                         cv2.BORDER_CONSTANT, value=border_color)
         label_text = f"{name}_{stage_name}"
@@ -104,11 +109,10 @@ class VisualDebugger:
         label_size, _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         label_position = (current_x + 5, current_y - 10)
         cv2.putText(final_img, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, border_color, 1)
-        final_img[current_y:current_y + padded_img.shape[0],
-                  current_x:current_x + padded_img.shape[1]] = padded_img
+        final_img[current_y:current_y + padded_img.shape[0], current_x:current_x + padded_img.shape[1]] = padded_img
         return final_img
 
-    def create_horizontal_image(self, grouped_images, max_height, total_width, border_thickness, border_color, label_space):
+    def create_horizontal_image(self, grouped_images, max_height, total_width, border_thickness, border_color, vertical_space, horizontal_space):
         """Creates the final horizontally concatenated image."""
         final_img = np.zeros((max_height + 100, total_width, 3), dtype=np.uint8)
         current_x = 0
@@ -116,40 +120,37 @@ class VisualDebugger:
             current_y = 70
             for img, stage_name in imgs:
                 padded_img, label_text = self.add_labels_and_borders(img, name, stage_name, border_thickness, border_color)
+                if current_y + padded_img.shape[0] > final_img.shape[0]:
+                    raise ValueError("Current_y exceeds the final image height.")
                 final_img = self.place_image_on_final(final_img, padded_img, label_text, current_x, current_y, border_thickness, border_color)
-                current_y += padded_img.shape[0] + label_space
-            current_x += max(img.shape[1] + 2 * border_thickness for img, _ in imgs) + label_space
+                current_y += padded_img.shape[0] + vertical_space
+            current_x += max(img.shape[1] + 2 * border_thickness for img, _ in imgs) + horizontal_space
         return final_img
 
-    def concat_images_horizontally(self, grouped_images, border_thickness, border_color, label_space):
+    def concat_images_horizontally(self, grouped_images, border_thickness, border_color, vertical_space, horizontal_space):
         """Concatenates images horizontally with labels and borders."""
-        max_height, total_width = self.calculate_horizontal_dimensions(grouped_images, border_thickness, label_space)
-        return self.create_horizontal_image(grouped_images, max_height, total_width, border_thickness, border_color, label_space)
+        max_height, total_width = self.calculate_horizontal_dimensions(grouped_images, border_thickness, vertical_space, horizontal_space)
+        return self.create_horizontal_image(grouped_images, max_height, total_width, border_thickness, border_color, vertical_space, horizontal_space)
 
-    def concat_images_vertically(self, grouped_images, border_thickness, border_color, label_space):
+    def concat_images_vertically(self, grouped_images, border_thickness, border_color, vertical_space, horizontal_space):
         """Concatenates images vertically with labels and borders."""
         max_width = 0
         total_height = 0
         for name, imgs in grouped_images.items():
-            max_width = max(max_width, sum(img.shape[1] + 2 * border_thickness for img, _ in imgs))
-            total_height += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + label_space
+            max_width = max(max_width, sum(img.shape[1] + 2 * border_thickness + horizontal_space for img, _ in imgs))
+            total_height += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + vertical_space
 
         final_img = np.zeros((total_height + 100, max_width, 3), dtype=np.uint8)
         current_y = 70
         for name, imgs in grouped_images.items():
             current_x = 0
             for img, stage_name in imgs:
-                padded_img = cv2.copyMakeBorder(img, border_thickness, border_thickness, border_thickness,
-                                                border_thickness, cv2.BORDER_CONSTANT, value=border_color)
-                label_text = f"{name}_{stage_name}"
-                label_size, _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                label_position = (current_x + 5, current_y - 10)
-                cv2.putText(final_img, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, border_color, 1)
-                final_img[current_y:current_y + padded_img.shape[0],
-                          current_x:current_x + padded_img.shape[1]] = padded_img
-                current_x += padded_img.shape[1] + label_space
-            current_y += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + label_space
-
+                padded_img, label_text = self.add_labels_and_borders(img, name, stage_name, border_thickness, border_color)
+                if current_x + padded_img.shape[1] > final_img.shape[1]:
+                    raise ValueError("Current_x exceeds the final image width.")
+                final_img = self.place_image_on_final(final_img, padded_img, label_text, current_x, current_y, border_thickness, border_color)
+                current_x += padded_img.shape[1] + horizontal_space
+            current_y += max(img.shape[0] + 2 * border_thickness for img, _ in imgs) + vertical_space
         return final_img
 
     def visual_debug(self, img, annotations=[], name="generic", stage_name=None, transparent=False, mask=False):
@@ -184,9 +185,9 @@ class VisualDebugger:
         else:
             raise ValueError("Invalid output option. Use 'save' or 'return'.")
 
-    def cook_merged_img(self):
+    def cook_merged_img(self, vertical_space=20, horizontal_space=20):
         """Creates a merged image from all debug images and saves it."""
-        final_img = self.concat_images()
+        final_img = self.concat_images(vertical_space=vertical_space, horizontal_space=horizontal_space)
         filename = "0_merged.png"
         full_path = os.path.join(self.debug_folder_path, filename)
         cv2.imwrite(full_path, cv2.cvtColor(final_img, cv2.COLOR_RGB2BGR))
@@ -218,6 +219,7 @@ class VisualDebugger:
 
     def put_circle_and_text_on_image(self, img, text, coordinates, radius, thickness, color):
         """Puts a circle and text on the image at the specified coordinates."""
+
         font = cv2.FONT_HERSHEY_SIMPLEX
         org = (coordinates[0] + 10, coordinates[1])
         fontScale = 0.5
@@ -270,19 +272,23 @@ class VisualDebugger:
             points = annotation.coordinates if isinstance(annotation.coordinates, list) else [annotation.coordinates]
             for point in points:
                 cv2.circle(image, point, 5, annotation.color, -1)
+
         elif annotation.type == AnnotationType.POINT_AND_LABEL:
             point = annotation.coordinates
             label = annotation.labels
             cv2.circle(image, point, 5, annotation.color, -1)
             cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
         elif annotation.type == AnnotationType.POINTS_AND_LABELS:
             for point, label in zip(annotation.coordinates, annotation.labels):
                 cv2.circle(image, point, 5, annotation.color, -1)
                 cv2.putText(image, label, (point[0] + 5, point[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
+
         elif annotation.type == AnnotationType.PITCH_YAW_ROLL:
             p, y, r = annotation.orientation
             tdx, tdy = annotation.coordinates if annotation.coordinates else (None, None)
             image = self.draw_orientation(image, y, p, r, tdx, tdy)
+
         elif annotation.type == AnnotationType.LINE:
             # Draw a line between two points
             cv2.line(image, annotation.coordinates[0], annotation.coordinates[1], annotation.color, 2)
@@ -294,18 +300,20 @@ class VisualDebugger:
             cv2.putText(image, annotation.labels, midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, annotation.color, 1)
 
     def pad_images_to_match_height(self, img1, img2):
-        """Pads two images to match their heights without scaling."""
-        height1, width1 = img1.shape[:2]
-        height2, width2 = img2.shape[:2]
+        """Pads images to match their height."""
+        h1, w1 = img1.shape[:2]
+        h2, w2 = img2.shape[:2]
 
-        if height1 > height2:
-            padding_top = (height1 - height2) // 2
-            padding_bottom = height1 - height2 - padding_top
-            img2 = cv2.copyMakeBorder(img2, padding_top, padding_bottom, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
-        elif height2 > height1:
-            padding_top = (height2 - height1) // 2
-            padding_bottom = height2 - height1 - padding_top
-            img1 = cv2.copyMakeBorder(img1, padding_top, padding_bottom, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+        if h1 > h2:
+            pad_amount = h1 - h2
+            pad_top = pad_amount // 2
+            pad_bottom = pad_amount - pad_top
+            img2 = cv2.copyMakeBorder(img2, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+        elif h2 > h1:
+            pad_amount = h2 - h1
+            pad_top = pad_amount // 2
+            pad_bottom = pad_amount - pad_top
+            img1 = cv2.copyMakeBorder(img1, pad_top, pad_bottom, 0, 0, cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
         return img1, img2
 
@@ -328,7 +336,7 @@ def main():
         Annotation(type=AnnotationType.POINTS_AND_LABELS, coordinates=[(70, 80), (90, 110)], labels=["P2", "P3"])
     ]
     annotations3 = [
-        Annotation(type=AnnotationType.CIRCLE_AND_LABEL, coordinates=(150, 195), radius=20, thickness=2, labels="Circle 1")
+        Annotation(type=AnnotationType.CIRCLE_AND_LABEL, coordinates=(150, 195), radius= 20, thickness= 2,  labels="Circle 1")
     ]
     annotations4 = [
         Annotation(type=AnnotationType.RECTANGLE, coordinates=(50, 50, 100, 100)),
@@ -346,7 +354,7 @@ def main():
     vd.visual_debug(handlers[3].img, annotations4, name="image3", stage_name="step2")
 
     # Merge and save all debug images
-    vd.cook_merged_img()
+    vd.cook_merged_img(vertical_space=30, horizontal_space=50)
 
-if __name__ == '__nun__':
+if __name__ == '__main__':
     main()
