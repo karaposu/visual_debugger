@@ -264,7 +264,7 @@ class VisualDebugger:
         self.sequence = 1
         self.tag = tag
         self.active = active
-        self.debug_folder_path = debug_folder_path if not debug_folder_path else os.getcwd()
+        self.debug_folder_path = debug_folder_path if debug_folder_path else os.getcwd()
         self.generate_merged = generate_merged
         self.images = []
         self.output = output
