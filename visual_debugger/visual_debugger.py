@@ -178,7 +178,7 @@ class ImageProcessor:
         for name, imgs in grouped_images.items():
             group_height = sum(img.shape[0] + 2 * border_thickness + vertical_space for img, _ in imgs)
             group_width = max(img.shape[1] + 2 * border_thickness for img, _ in imgs) + horizontal_space
-            print(f"Group '{name}' - Height: {group_height}, Width: {group_width}")
+            #print(f"Group '{name}' - Height: {group_height}, Width: {group_width}")
             max_height = max(max_height, group_height)
             total_width += group_width
         return max_height, total_width
