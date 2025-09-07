@@ -81,7 +81,8 @@ panel = InfoPanel(position=PanelPosition.TOP_RIGHT,
 panel.add("Font Scale", "0.6")
 panel.add("Thickness", "1")
 
-annotations.append(InfoPanelAnnotation(panel=panel))
+# Add panel to annotations list (simplified API - panel can be added directly)
+annotations.append(panel)
 
 # Render all
 result = vd.visual_debug(img, annotations)

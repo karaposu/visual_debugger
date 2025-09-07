@@ -40,7 +40,7 @@ from visual_debugger.annotations import (
     LineAnnotation, LabeledLineAnnotation, PolylineAnnotation,
     # Text and complex annotations
     TextAnnotation, BoundingBoxAnnotation, MaskAnnotation, OrientationAnnotation,
-    InfoPanelAnnotation,
+    # InfoPanelAnnotation not needed with new direct API
     # Factory functions
     point, labeled_point, circle, rectangle, line, text, bbox
 )
@@ -415,8 +415,8 @@ def test_info_panel_showcase(output_dir):
         panel1.add_separator()
         panel1.add("Status", "Running")
         vd = VisualDebugger(debug_folder_path=output_dir, output='return')
-        panel1_ann = InfoPanelAnnotation(panel=panel1)
-        img1 = vd.visual_debug(img.copy(), [panel1_ann], name="panel_metrics")
+        # Direct panel passing (new simplified API)
+        img1 = vd.visual_debug(img.copy(), panel1, name="panel_metrics")
         
         # Panel 2: Top-right with custom style
         style2 = PanelStyle(
@@ -431,16 +431,16 @@ def test_info_panel_showcase(output_dir):
         panel2.add("Objects", "15")
         panel2.add("Confidence", "0.94")
         panel2.add("Time", "23.5ms")
-        panel2_ann = InfoPanelAnnotation(panel=panel2)
-        img2 = vd.visual_debug(img.copy(), [panel2_ann], name="panel_styled")
+        # Direct panel passing
+        img2 = vd.visual_debug(img.copy(), panel2, name="panel_styled")
         
         # Panel 3: Bottom with progress bars
         panel3 = InfoPanel(position=PanelPosition.BOTTOM_CENTER, title="Progress")
         panel3.add_progress("Training", 0.75, width=20)
         panel3.add_progress("Validation", 0.45, width=20)
         panel3.add_progress("Testing", 0.90, width=20)
-        panel3_ann = InfoPanelAnnotation(panel=panel3)
-        img3 = vd.visual_debug(img.copy(), [panel3_ann], name="panel_progress")
+        # Direct panel passing
+        img3 = vd.visual_debug(img.copy(), panel3, name="panel_progress")
         
         # Panel 4: Multiple panels on same image
         panel4a = InfoPanel(position=PanelPosition.TOP_LEFT, title="Camera")
@@ -459,14 +459,14 @@ def test_info_panel_showcase(output_dir):
         panel4d.add("Latency", "12ms")
         panel4d.add("Throughput", "83 fps")
         
-        # Convert all panels to annotations
-        panel4_anns = [
-            InfoPanelAnnotation(panel=panel4a),
-            InfoPanelAnnotation(panel=panel4b),
-            InfoPanelAnnotation(panel=panel4c),
-            InfoPanelAnnotation(panel=panel4d)
+        # Direct panels in list (new simplified API)
+        panel4_list = [
+            panel4a,  # Direct panels
+            panel4b,
+            panel4c,
+            panel4d
         ]
-        img4 = vd.visual_debug(img.copy(), panel4_anns, name="panel_multiple")
+        img4 = vd.visual_debug(img.copy(), panel4_list, name="panel_multiple")
         
         # Panel 5: Center panel with table
         panel5 = InfoPanel(position=PanelPosition.CENTER, title="Model Comparison")
@@ -478,15 +478,15 @@ def test_info_panel_showcase(output_dir):
                 ["YOLO", "89.5", "12ms"],
             ]
         )
-        panel5_ann = InfoPanelAnnotation(panel=panel5)
-        img5 = vd.visual_debug(img.copy(), [panel5_ann], name="panel_table")
+        # Direct panel passing
+        img5 = vd.visual_debug(img.copy(), panel5, name="panel_table")
         
         # Panel 6: Compact panel without title (saves space)
         panel6 = InfoPanel(position=PanelPosition.TOP_LEFT)  # No title for compact display
         panel6.add("Frame", "42")
         panel6.add("Timestamp", "00:01:23")
-        panel6_ann = InfoPanelAnnotation(panel=panel6)
-        img6 = vd.visual_debug(img.copy(), [panel6_ann], name="panel_annotation")
+        # Direct panel passing
+        img6 = vd.visual_debug(img.copy(), panel6, name="panel_annotation")
         
         # Save all results
         results = [

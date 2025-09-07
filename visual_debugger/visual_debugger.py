@@ -55,6 +55,26 @@ class VisualDebugger:
 
         img = cv2.imread(img) if isinstance(img, str) else img.copy()
 
+        # Import here to avoid circular dependency
+        from .info_panel import InfoPanel
+        from .annotations import InfoPanelAnnotation
+        
+        # Handle InfoPanel directly - convert to InfoPanelAnnotation
+        if isinstance(annotations, InfoPanel):
+            annotations = [InfoPanelAnnotation(panel=annotations)]
+        elif not isinstance(annotations, list):
+            # Handle single annotation
+            annotations = [annotations] if annotations else []
+        else:
+            # Process list - convert any InfoPanels to InfoPanelAnnotations
+            processed_annotations = []
+            for ann in annotations:
+                if isinstance(ann, InfoPanel):
+                    processed_annotations.append(InfoPanelAnnotation(panel=ann))
+                else:
+                    processed_annotations.append(ann)
+            annotations = processed_annotations
+
         for annotation in annotations:
             self.processor.put_annotation_on_image(img, annotation)
 

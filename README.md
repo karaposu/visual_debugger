@@ -2,6 +2,9 @@
 
 A visual debugging toolkit for computer vision and image processing workflows. Annotate, visualize, and debug your image processing pipelines with ease.
 
+
+
+
 ## 🚀 Features
 
 ## Features
@@ -128,10 +131,15 @@ panel.add("Objects", "5")
 panel.add_separator()
 panel.add_progress("Processing", 0.75)
 
-# Use with VisualDebugger (panels are now composite annotations)
-from visual_debugger.annotations import InfoPanelAnnotation
-panel_ann = InfoPanelAnnotation(panel=panel)
-result = vd.visual_debug(img, [panel_ann])
+# Use with VisualDebugger - just pass the panel directly!
+result = vd.visual_debug(img, panel)  # Simple and clean!
+
+# Or mix with other annotations
+result = vd.visual_debug(img, [
+    panel,
+    point(100, 100),
+    circle(200, 200, 50)
+])
 ```
 
 ### Image Composition

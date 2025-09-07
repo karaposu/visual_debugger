@@ -36,19 +36,25 @@ class VisualDebugger:
 ```python
 def visual_debug(
     self,
-    image: np.ndarray,
-    annotations: Union[List[BaseAnnotation], BaseAnnotation, None] = None,
-    process_step: str = "",
-    image_index: Optional[int] = None
+    img: np.ndarray,
+    annotations: Union[List[BaseAnnotation], BaseAnnotation, InfoPanel, None] = [],
+    name: str = "generic",
+    stage_name: Optional[str] = None,
+    transparent: bool = False,
+    mask: bool = False
 ) -> Optional[np.ndarray]
 ```
 Apply annotations to an image.
 
 **Parameters:**
-- `image`: Input image as numpy array
-- `annotations`: Single annotation or list of annotations
-- `process_step`: Optional step name for file naming
-- `image_index`: Optional index for file naming
+- `img`: Input image as numpy array or file path
+- `annotations`: Single annotation, list of annotations, InfoPanel, or None
+  - Can pass InfoPanel directly without wrapping in InfoPanelAnnotation
+  - Can mix InfoPanel with other annotations in a list
+- `name`: Base name for saved files
+- `stage_name`: Optional stage name for file naming
+- `transparent`: Whether to convert to RGBA
+- `mask`: Whether to save as mask format
 
 **Returns:**
 - `None` if output='save'

@@ -400,10 +400,10 @@ def test_panel_rendering():
         panel1.add("FPS", 30.0)
         
         vd = VisualDebugger(output='return', active=True)
-        panel_ann = InfoPanelAnnotation(panel=panel1)
         
+        # Test direct panel passing (new simplified API)
         original_sum = np.sum(img1)
-        result = vd.visual_debug(img1.copy(), [panel_ann])
+        result = vd.visual_debug(img1.copy(), panel1)  # Pass panel directly!
         rendered_sum = np.sum(result) if result is not None else original_sum
         
         if rendered_sum != original_sum:
@@ -439,10 +439,9 @@ def test_panel_rendering():
             panel = InfoPanel(position=pos, title=pos.value)
             panel.add("Position", pos.value)
             
-            panel_ann = InfoPanelAnnotation(panel=panel)
-            
+            # Use direct panel passing
             try:
-                result = vd.visual_debug(img.copy(), [panel_ann])
+                result = vd.visual_debug(img.copy(), panel)  # Direct API
                 if result is not None:
                     print(f"✓ Rendered at {pos.value}")
                 else:
@@ -461,8 +460,8 @@ def test_panel_rendering():
         panel_transparent = InfoPanel(style=style_transparent)
         panel_transparent.add("Alpha", 0.5)
         
-        panel_trans_ann = InfoPanelAnnotation(panel=panel_transparent)
-        result = vd.visual_debug(img3.copy(), [panel_trans_ann])
+        # Direct panel passing
+        result = vd.visual_debug(img3.copy(), panel_transparent)
         img3 = result if result is not None else img3
         # Check if background is semi-transparent (not pure white or original gray)
         roi = img3[10:50, 10:50]  # Sample region where panel should be
@@ -479,8 +478,8 @@ def test_panel_rendering():
         for i in range(12):
             panel_multi.add(f"Item_{i}", i)
         
-        panel_multi_ann = InfoPanelAnnotation(panel=panel_multi)
-        result = vd.visual_debug(img4.copy(), [panel_multi_ann])
+        # Direct panel passing
+        result = vd.visual_debug(img4.copy(), panel_multi)
         if result is None:
             print(f"❌ Multi-item panel failed")
             return False
@@ -492,8 +491,8 @@ def test_panel_rendering():
         panel_small.add("Small", "Test")
         
         try:
-            panel_small_ann = InfoPanelAnnotation(panel=panel_small)
-            result = vd.visual_debug(img_small.copy(), [panel_small_ann])
+            # Direct panel passing
+            result = vd.visual_debug(img_small.copy(), panel_small)
             if result is not None:
                 print(f"✓ Rendered on small image (200x150)")
             else:
@@ -506,8 +505,8 @@ def test_panel_rendering():
         panel_empty = InfoPanel(title="Empty")
         
         try:
-            panel_empty_ann = InfoPanelAnnotation(panel=panel_empty)
-            result = vd.visual_debug(img5.copy(), [panel_empty_ann])
+            # Direct panel passing
+            result = vd.visual_debug(img5.copy(), panel_empty)
             if result is not None:
                 print(f"✓ Empty panel rendered (title only)")
             else:
@@ -564,6 +563,7 @@ def test_panel_as_annotation():
         img = create_test_image()
         vd = VisualDebugger(output='return', active=True)
         
+        # Test both ways - with InfoPanelAnnotation and direct
         result = vd.visual_debug(img.copy(), [panel_ann])
         if result is not None:
             print(f"✓ InfoPanelAnnotation works with visual_debug")
@@ -571,11 +571,20 @@ def test_panel_as_annotation():
             print(f"❌ InfoPanelAnnotation failed with visual_debug")
             return False
         
+        # Test direct panel passing
+        result_direct = vd.visual_debug(img.copy(), panel)
+        if result_direct is not None:
+            print(f"✓ Direct panel passing works with visual_debug")
+        else:
+            print(f"❌ Direct panel passing failed with visual_debug")
+            return False
+        
         # Test mixing with other annotations
         from visual_debugger.annotations import point, circle, text
         
+        # Test mixing panel directly with other annotations
         mixed = [
-            panel_ann,
+            panel,  # Direct panel in list
             point(300, 200, color=(255, 0, 0)),
             circle(400, 300, 30, color=(0, 255, 0)),
             text("Mixed", 500, 100, color=(255, 255, 255))
