@@ -5,7 +5,7 @@ import os
 
 setup(
     name='visual_debugger',  # Package name
-    version='0.3.32',  # Version of your package
+    version='0.4.0',  # Version of your package
     author='Enes Kuzucu',  # Your name
 
     description='A module to help debugging visual workflows',  # Short description
